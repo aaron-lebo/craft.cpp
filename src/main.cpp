@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+extern "C" {
 #include "auth.h"
 #include "client.h"
 #include "config.h"
@@ -19,14 +20,15 @@
 #include "tinycthread.h"
 #include "util.h"
 #include "world.h"
+}
 
-#define MAX_CHUNKS 8192
-#define MAX_PLAYERS 128
-#define WORKERS 4
-#define MAX_TEXT_LENGTH 256
-#define MAX_NAME_LENGTH 32
-#define MAX_PATH_LENGTH 256
-#define MAX_ADDR_LENGTH 256
+const int MAX_CHUNKS = 8192;
+const int MAX_PLAYERS = 128;
+const int MAX_ADDR_LENGTH = 256;
+const int MAX_NAME_LENGTH = 32;
+const int MAX_PATH_LENGTH = 256;
+const int MAX_TEXT_LENGTH = 256;
+const int WORKERS = 4;
 
 #define ALIGN_LEFT 0
 #define ALIGN_CENTER 1
@@ -161,14 +163,10 @@ int chunked(float x) {
 }
 
 float time_of_day() {
-    if (g->day_length <= 0) {
+    if (g->day_length <= 0)
         return 0.5;
-    }
-    float t;
-    t = glfwGetTime();
-    t = t / g->day_length;
-    t = t - (int)t;
-    return t;
+    auto t = glfwGetTime() / g->day_length;
+    return t - (int)t;
 }
 
 float get_daylight() {
@@ -184,14 +182,11 @@ float get_daylight() {
 }
 
 int get_scale_factor() {
-    int window_width, window_height;
-    int buffer_width, buffer_height;
-    glfwGetWindowSize(g->window, &window_width, &window_height);
-    glfwGetFramebufferSize(g->window, &buffer_width, &buffer_height);
-    int result = buffer_width / window_width;
-    result = MAX(1, result);
-    result = MIN(2, result);
-    return result;
+    int win_w, win_h, buf_w, buf_h;
+    glfwGetWindowSize(g->window, &win_w, &win_h);
+    glfwGetFramebufferSize(g->window, &buf_w, &buf_h);
+    int result = MAX(1, buf_w / win_w);
+    return MIN(2, result);
 }
 
 void get_sight_vector(float rx, float ry, float *vx, float *vy, float *vz) {
@@ -201,25 +196,21 @@ void get_sight_vector(float rx, float ry, float *vx, float *vy, float *vz) {
     *vz = sinf(rx - RADIANS(90)) * m;
 }
 
-void get_motion_vector(int flying, int sz, int sx, float rx, float ry,
-    float *vx, float *vy, float *vz) {
+void get_motion_vector(int flying, int sz, int sx, float rx, float ry, float *vx, float *vy, float *vz) {
     *vx = 0; *vy = 0; *vz = 0;
-    if (!sz && !sx) {
+    if (!sz && !sx)
         return;
-    }
     float strafe = atan2f(sz, sx);
     if (flying) {
         float m = cosf(ry);
         float y = sinf(ry);
         if (sx) {
-            if (!sz) {
+            if (!sz)
                 y = 0;
-            }
             m = 1;
         }
-        if (sz > 0) {
+        if (sz > 0)
             y = -y;
-        }
         *vx = cosf(rx + strafe) * m;
         *vy = y;
         *vz = sinf(rx + strafe) * m;
@@ -411,28 +402,23 @@ void draw_player(Attrib *attrib, Player *player) {
 Player *find_player(int id) {
     for (int i = 0; i < g->player_count; i++) {
         Player *player = g->players + i;
-        if (player->id == id) {
+        if (player->id == id)
             return player;
-        }
     }
     return 0;
 }
 
-void update_player(Player *player,
-    float x, float y, float z, float rx, float ry, int interpolate)
-{
+void update_player(Player *player, float x, float y, float z, float rx, float ry, int interpolate) {
     if (interpolate) {
         State *s1 = &player->state1;
         State *s2 = &player->state2;
         memcpy(s1, s2, sizeof(State));
         s2->x = x; s2->y = y; s2->z = z; s2->rx = rx; s2->ry = ry;
         s2->t = glfwGetTime();
-        if (s2->rx - s1->rx > PI) {
+        if (s2->rx - s1->rx > PI)
             s1->rx += 2 * PI;
-        }
-        if (s1->rx - s2->rx > PI) {
+        if (s1->rx - s2->rx > PI)
             s1->rx -= 2 * PI;
-        }
     }
     else {
         State *s = &player->state;
@@ -462,9 +448,8 @@ void interpolate_player(Player *player) {
 
 void delete_player(int id) {
     Player *player = find_player(id);
-    if (!player) {
+    if (!player)
         return;
-    }
     int count = g->player_count;
     del_buffer(player->buffer);
     Player *other = g->players + (--count);
@@ -510,9 +495,8 @@ Player *player_crosshair(Player *player) {
     float best = 0;
     for (int i = 0; i < g->player_count; i++) {
         Player *other = g->players + i;
-        if (other == player) {
+        if (other == player)
             continue;
-        }
         float p = player_crosshair_distance(player, other);
         float d = player_player_distance(player, other);
         if (d < 96 && p / d < threshold) {
@@ -528,9 +512,8 @@ Player *player_crosshair(Player *player) {
 Chunk *find_chunk(int p, int q) {
     for (int i = 0; i < g->chunk_count; i++) {
         Chunk *chunk = g->chunks + i;
-        if (chunk->p == p && chunk->q == q) {
+        if (chunk->p == p && chunk->q == q)
             return chunk;
-        }
     }
     return 0;
 }
@@ -567,17 +550,14 @@ int chunk_visible(float planes[6][4], int p, int q, int miny, int maxy) {
                 planes[i][3];
             if (d < 0) {
                 out++;
-            }
-            else {
+            } else {
                 in++;
             }
-            if (in && out) {
+            if (in && out)
                 break;
-            }
         }
-        if (in == 0) {
+        if (in == 0)
             return 0;
-        }
     }
     return 1;
 }
@@ -592,9 +572,8 @@ int highest_block(float x, float z) {
     if (chunk) {
         Map *map = &chunk->map;
         MAP_FOR_EACH(map, ex, ey, ez, ew) {
-            if (is_obstacle(ew) && ex == nx && ez == nz) {
+            if (is_obstacle(ew) && ex == nx && ez == nz)
                 result = MAX(result, ey);
-            }
         } END_MAP_FOR_EACH;
     }
     return result;
@@ -619,8 +598,7 @@ int _hit_test(
             if (hw > 0) {
                 if (previous) {
                     *hx = px; *hy = py; *hz = pz;
-                }
-                else {
+                } else {
                     *hx = nx; *hy = ny; *hz = nz;
                 }
                 return hw;
@@ -632,10 +610,7 @@ int _hit_test(
     return 0;
 }
 
-int hit_test(
-    int previous, float x, float y, float z, float rx, float ry,
-    int *bx, int *by, int *bz)
-{
+int hit_test(int previous, float x, float y, float z, float rx, float ry, int *bx, int *by, int *bz) {
     int result = 0;
     float best = 0;
     int p = chunked(x);
@@ -644,15 +619,12 @@ int hit_test(
     get_sight_vector(rx, ry, &vx, &vy, &vz);
     for (int i = 0; i < g->chunk_count; i++) {
         Chunk *chunk = g->chunks + i;
-        if (chunk_distance(chunk, p, q) > 1) {
+        if (chunk_distance(chunk, p, q) > 1)
             continue;
-        }
         int hx, hy, hz;
-        int hw = _hit_test(&chunk->map, 8, previous,
-            x, y, z, vx, vy, vz, &hx, &hy, &hz);
+        int hw = _hit_test(&chunk->map, 8, previous, x, y, z, vx, vy, vz, &hx, &hy, &hz);
         if (hw > 0) {
-            float d = sqrtf(
-                powf(hx - x, 2) + powf(hy - y, 2) + powf(hz - z, 2));
+            float d = sqrtf(powf(hx - x, 2) + powf(hy - y, 2) + powf(hz - z, 2));
             if (best == 0 || d < best) {
                 best = d;
                 *bx = hx; *by = hy; *bz = hz;
@@ -672,23 +644,18 @@ int hit_test_face(Player *player, int *x, int *y, int *z, int *face) {
         int dx = hx - *x;
         int dy = hy - *y;
         int dz = hz - *z;
-        if (dx == -1 && dy == 0 && dz == 0) {
+        if (dx == -1 && dy == 0 && dz == 0)
             *face = 0; return 1;
-        }
-        if (dx == 1 && dy == 0 && dz == 0) {
+        if (dx == 1 && dy == 0 && dz == 0)
             *face = 1; return 1;
-        }
-        if (dx == 0 && dy == 0 && dz == -1) {
+        if (dx == 0 && dy == 0 && dz == -1)
             *face = 2; return 1;
-        }
-        if (dx == 0 && dy == 0 && dz == 1) {
+        if (dx == 0 && dy == 0 && dz == 1)
             *face = 3; return 1;
-        }
         if (dx == 0 && dy == 1 && dz == 0) {
             int degrees = roundf(DEGREES(atan2f(s->x - hx, s->z - hz)));
-            if (degrees < 0) {
+            if (degrees < 0)
                 degrees += 360;
-            }
             int top = ((degrees + 45) / 90) % 4;
             *face = 4 + top; return 1;
         }
@@ -1230,17 +1197,17 @@ void delete_chunks() {
     State *states[3] = {s1, s2, s3};
     for (int i = 0; i < count; i++) {
         Chunk *chunk = g->chunks + i;
-        int delete = 1;
+        int del = 1;
         for (int j = 0; j < 3; j++) {
             State *s = states[j];
             int p = chunked(s->x);
             int q = chunked(s->z);
             if (chunk_distance(chunk, p, q) < g->delete_radius) {
-                delete = 0;
+                del = 0;
                 break;
             }
         }
-        if (delete) {
+        if (del) {
             map_free(&chunk->map);
             map_free(&chunk->lights);
             sign_list_free(&chunk->signs);
@@ -1397,9 +1364,9 @@ void ensure_chunks_worker(Player *player, Worker *worker) {
                 other = find_chunk(chunk->p + dp, chunk->q + dq);
             }
             if (other) {
-                Map *block_map = malloc(sizeof(Map));
+                Map *block_map = new(Map);
                 map_copy(block_map, &other->map);
-                Map *light_map = malloc(sizeof(Map));
+                Map *light_map = new(Map);
                 map_copy(light_map, &other->lights);
                 item->block_maps[dp + 1][dq + 1] = block_map;
                 item->light_maps[dp + 1][dq + 1] = light_map;

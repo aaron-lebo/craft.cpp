@@ -6,6 +6,7 @@ FILE(GLOB SOURCE_FILES src/*.c)
 
 add_executable(
     craft
+    src/main.cpp
     ${SOURCE_FILES}
     deps/glew/src/glew.c
     deps/lodepng/lodepng.c
